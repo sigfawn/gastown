@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/steveyegge/gastown/internal/config"
@@ -22,6 +23,12 @@ func getRig(rigName string) (string, *rig.Rig, error) {
 	rigsConfigPath := constants.MayorRigsPath(townRoot)
 	rigsConfig, err := config.LoadRigsConfig(rigsConfigPath)
 	if err != nil {
+		// Only default to empty config if file doesn't exist.
+		// Other errors (permission denied, JSON parse error, validation failure) should be reported.
+		if !errors.Is(err, config.ErrNotFound) {
+			return "", nil, fmt.Errorf("loading rigs config from %s: %w", rigsConfigPath, err)
+		}
+		// File doesn't exist - use empty config
 		rigsConfig = &config.RigsConfig{Rigs: make(map[string]config.RigEntry)}
 	}
 
@@ -29,7 +36,7 @@ func getRig(rigName string) (string, *rig.Rig, error) {
 	rigMgr := rig.NewManager(townRoot, rigsConfig, g)
 	r, err := rigMgr.GetRig(rigName)
 	if err != nil {
-		return "", nil, fmt.Errorf("rig '%s' not found", rigName)
+		return "", nil, fmt.Errorf("rig '%s' not found: %w", rigName, err)
 	}
 
 	return townRoot, r, nil
